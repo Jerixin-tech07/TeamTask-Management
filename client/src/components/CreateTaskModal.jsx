@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiFetch as fetch } from '../api.js';
 import { useAuth } from '../context/AuthContext';
 import { X, Plus, Calendar, AlertCircle, Check, Search } from 'lucide-react';
 

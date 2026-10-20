@@ -11,3 +11,13 @@ server/.env.*
 dist/
 build/
 coverage/
+.env
+.env.*
+!.env.example
+client/.env
+client/.env.*
+!client/.env.example
+server/.env
+server/.env.*
+!server/.env.example
+server/database.sqlite

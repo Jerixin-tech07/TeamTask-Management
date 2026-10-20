@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { apiFetch as fetch } from '../api.js';
 import { useAuth } from '../context/AuthContext';
 import {
   X, Crown, Camera, Lock, CheckCircle2, Upload, Sparkles,

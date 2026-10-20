@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { apiFetch as fetch } from '../api.js';
 import { useAuth } from '../context/AuthContext';
 import {
   FolderOpen, UploadCloud, Search, Filter, FileText, Image as ImageIcon,

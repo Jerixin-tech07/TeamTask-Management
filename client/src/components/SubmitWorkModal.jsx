@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { apiFetch as fetch, apiUrl } from '../api.js';
 import { useAuth } from '../context/AuthContext';
 import { X, UploadCloud, File, CheckCircle2, AlertCircle, Eye, Trash2, RefreshCw, ExternalLink } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -163,7 +164,7 @@ export default function SubmitWorkModal({ isOpen, onClose, task, onWorkSubmitted
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-                      <a href={`/uploads/${sub.file_path}`} target="_blank" rel="noreferrer"
+                      <a href={apiUrl(`/uploads/${sub.file_path}`)} target="_blank" rel="noreferrer"
                         className="btn btn-secondary btn-icon btn-sm" title="Preview file">
                         <Eye size={14} />
                       </a>

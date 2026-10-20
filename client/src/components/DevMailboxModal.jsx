@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiFetch as fetch } from '../api.js';
 import { Mail, RefreshCw, X, Copy, Check, Clock, ExternalLink } from 'lucide-react';
 
 export default function DevMailboxModal({ isOpen, onClose, onSelectOtp }) {

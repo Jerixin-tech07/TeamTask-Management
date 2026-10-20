@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { API_BASE_URL, apiFetch as fetch } from '../api.js';
 import { io } from 'socket.io-client';
 
 const AuthContext = createContext(null);
@@ -121,7 +122,7 @@ export function AuthProvider({ children }) {
       return;
     }
 
-    const newSocket = io({
+    const newSocket = io(API_BASE_URL || undefined, {
       auth: { token }
     });
 
