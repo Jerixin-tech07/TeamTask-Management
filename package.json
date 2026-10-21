@@ -8,12 +8,18 @@
     "server": "node --watch server/index.js",
     "client": "npm --prefix client run dev",
     "dev": "concurrently -k -p \"[{name}]\" -n \"SERVER,CLIENT\" -c \"cyan.bold,green.bold\" \"node --watch server/index.js\" \"npm --prefix client run dev\"",
-    "build": "npm --prefix client run build"
+    "build": "npm --workspace client run build"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "engines": {
+    "node": "24.x"
+  },
+  "workspaces": [
+    "client"
+  ],
   "dependencies": {
     "@libsql/client": "^0.15.15",
     "bcryptjs": "^3.0.3",

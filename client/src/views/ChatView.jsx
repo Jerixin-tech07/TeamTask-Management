@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { apiFetch as fetch } from '../api.js';
+import { apiFetch as fetch, apiUrl } from '../api.js';
 import { useAuth } from '../context/AuthContext';
 import {
   MessageSquare, Send, Paperclip, Search, X, Download, FileText,
@@ -437,7 +437,7 @@ export default function ChatView({ initialContact = null, onPreviewFile, onViewP
                         }}>
                           {isImageAttachment ? (
                             <img
-                              src={`/api/files/preview/${msg.id}?token=${token}`}
+                              src={apiUrl(`/api/files/preview/${msg.id}?token=${token}`)}
                               alt={msg.attachment_original_name}
                               style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '4px' }}
                             />
@@ -460,7 +460,7 @@ export default function ChatView({ initialContact = null, onPreviewFile, onViewP
                             </span>
                           </div>
                           <a
-                            href={`/api/files/download/${msg.id}?token=${token}`}
+                            href={apiUrl(`/api/files/download/${msg.id}?token=${token}`)}
                             download={msg.attachment_original_name}
                             className="btn btn-secondary btn-icon btn-sm"
                             style={{ width: '28px', height: '28px', background: 'rgba(255,255,255,0.1)' }}

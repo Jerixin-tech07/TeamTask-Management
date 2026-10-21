@@ -214,10 +214,10 @@ The test suite covers:
 The application is structured to be deployed on platforms such as **Render**, **Railway**, **DigitalOcean**, or **VPS (Ubuntu/Debian)**:
 
 ### Deploying to Vercel:
-- The root `vercel.json` builds the Vite app from `client/package.json` and routes `/api/*` requests to the Express function in `server/index.js`.
-- Keep `VITE_API_URL` unset when deploying both parts in this project; the frontend sends API requests to same-origin `/api` paths. Set it only when using a separately hosted backend.
+- The root `vercel.json` builds the Vite app from `client/package.json`, routes `/api/*` to the Node function in `api/index.js`, and serves the client SPA for other paths. `api/index.js` exports the Express app from `server/index.js`.
+- Keep `VITE_API_URL` unset when deploying both parts in this project; the frontend sends API requests to same-origin `/api` paths. Set it only when using a separately hosted backend, using its origin (with or without a trailing `/api`).
 - Configure `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` in Vercel's project environment variables. The server fails fast on Vercel if either is missing; local SQLite is used only outside Vercel when Turso credentials are absent.
-- Vercel Functions do not provide durable local file storage or support long-lived Socket.IO connections. Store uploads in an external service and host the backend on a long-running platform if persistent local files or Socket.IO are required.
+- The API uses Turso for persistent database data. Vercel's local filesystem is not durable: file upload routes currently use local disk storage and need migration to object storage (such as Vercel Blob) for production. Socket.IO rooms are also in-memory and are not shared between serverless instances; use an external realtime/pub-sub service or a long-running backend for reliable multi-instance chat.
 
 ### Deploying to Render / Railway:
 1. Connect your repository to Render or Railway.

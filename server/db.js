@@ -6,17 +6,19 @@ const dbPath = path.resolve(__dirname, 'database.sqlite');
 const tursoUrl = process.env.TURSO_DATABASE_URL?.trim();
 const tursoAuthToken = process.env.TURSO_AUTH_TOKEN?.trim();
 const isVercel = Boolean(process.env.VERCEL);
+const isProduction = process.env.NODE_ENV === 'production';
+const requiresTurso = isVercel || isProduction;
 
 if (Boolean(tursoUrl) !== Boolean(tursoAuthToken)) {
   throw new Error('TURSO_DATABASE_URL and TURSO_AUTH_TOKEN must both be configured.');
 }
 
-if (isVercel && (!tursoUrl || !tursoAuthToken)) {
-  throw new Error('Turso is required on Vercel. Configure TURSO_DATABASE_URL and TURSO_AUTH_TOKEN.');
+if (requiresTurso && (!tursoUrl || !tursoAuthToken)) {
+  throw new Error('Turso is required in production. Configure TURSO_DATABASE_URL and TURSO_AUTH_TOKEN.');
 }
 
-if (isVercel && tursoUrl.toLowerCase().startsWith('file:')) {
-  throw new Error('TURSO_DATABASE_URL must point to a remote Turso database on Vercel.');
+if (requiresTurso && tursoUrl.toLowerCase().startsWith('file:')) {
+  throw new Error('TURSO_DATABASE_URL must point to a remote Turso database in production.');
 }
 
 const db = createClient(
@@ -25,9 +27,12 @@ const db = createClient(
     : { url: `file:${dbPath}` }
 );
 
-console.log(tursoUrl && !tursoUrl.toLowerCase().startsWith('file:')
-  ? 'Connected to Turso database.'
-  : `Connected to local SQLite database at: ${dbPath}`);
+if (tursoUrl && !tursoUrl.toLowerCase().startsWith('file:')) {
+  console.log('Connected to Turso database.');
+} else {
+  const localDbPath = tursoUrl?.slice('file:'.length) || dbPath;
+  console.log(`Connected to local SQLite database at: ${localDbPath}`);
+}
 
 // Helper functions for Promises
 const query = {
@@ -48,6 +53,16 @@ const query = {
   },
   exec: (sql) => db.executeMultiple(sql)
 };
+
+async function addColumnIfMissing(sql) {
+  try {
+    await query.run(sql);
+  } catch (err) {
+    if (!/duplicate column name/i.test(err?.message || String(err))) {
+      throw err;
+    }
+  }
+}
 
 async function initDatabase() {
   // Enable foreign keys
@@ -70,18 +85,10 @@ async function initDatabase() {
     );
   `);
 
-  try {
-    await query.run('ALTER TABLE users ADD COLUMN active_session_token TEXT;');
-  } catch (err) {
-    // Column already exists
-  }
+  await addColumnIfMissing('ALTER TABLE users ADD COLUMN active_session_token TEXT;');
 
   // Add date_of_birth column if not exists
-  try {
-    await query.run('ALTER TABLE users ADD COLUMN date_of_birth TEXT;');
-  } catch (err) {
-    // Column already exists
-  }
+  await addColumnIfMissing('ALTER TABLE users ADD COLUMN date_of_birth TEXT;');
 
   // Email OTPs table
   await query.exec(`
@@ -98,11 +105,7 @@ async function initDatabase() {
   `);
 
   // Add purpose column to email_otps if not exists (migration for existing DBs)
-  try {
-    await query.run("ALTER TABLE email_otps ADD COLUMN purpose TEXT DEFAULT 'registration';");
-  } catch (err) {
-    // Column already exists
-  }
+  await addColumnIfMissing("ALTER TABLE email_otps ADD COLUMN purpose TEXT DEFAULT 'registration';");
 
   // Tasks table
   await query.exec(`
@@ -234,25 +237,21 @@ async function initDatabase() {
 
 async function seedInitialData() {
   const adminEmail = process.env.DEFAULT_ADMIN_EMAIL || 'jerison1539@gmail.com';
+  const existingAdmin = await query.get('SELECT id FROM users WHERE email = ?', [adminEmail]);
+
+  if (existingAdmin) {
+    console.log(`[SEED] Designated admin account already exists: ${adminEmail}`);
+    return;
+  }
+
   const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD || 'JeriAD07#';
   const salt = await bcrypt.genSalt(10);
   const adminHash = await bcrypt.hash(adminPassword, salt);
-
-  const existingAdmin = await query.get('SELECT id FROM users WHERE email = ?', [adminEmail]);
-
-  if (!existingAdmin) {
-    await query.run(`
-      INSERT INTO users (name, email, password_hash, role, department, status, avatar)
-      VALUES (?, ?, ?, 'admin', 'Management', 'active', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150')
-    `, [process.env.DEFAULT_ADMIN_NAME || 'Jerison (Admin)', adminEmail, adminHash]);
-    console.log(`[SEED] Designated admin account created: ${adminEmail}`);
-  } else {
-    // Keep password and role synchronized
-    await query.run(`
-      UPDATE users SET password_hash = ?, role = 'admin', status = 'active' WHERE id = ?
-    `, [adminHash, existingAdmin.id]);
-    console.log(`[SEED] Admin account verified & synchronized: ${adminEmail}`);
-  }
+  await query.run(`
+    INSERT INTO users (name, email, password_hash, role, department, status, avatar)
+    VALUES (?, ?, ?, 'admin', 'Management', 'active', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150')
+  `, [process.env.DEFAULT_ADMIN_NAME || 'Jerison (Admin)', adminEmail, adminHash]);
+  console.log(`[SEED] Designated admin account created: ${adminEmail}`);
 }
 
 module.exports = {

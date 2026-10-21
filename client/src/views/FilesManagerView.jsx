@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { apiFetch as fetch } from '../api.js';
+import { apiFetch as fetch, apiUrl } from '../api.js';
 import { useAuth } from '../context/AuthContext';
 import {
   FolderOpen, UploadCloud, Search, Filter, FileText, Image as ImageIcon,
@@ -198,8 +198,8 @@ export default function FilesManagerView({ onPreviewFile }) {
         }}>
           {files.map((file) => {
             const isImg = file.category === 'image';
-            const previewUrl = `/api/files/preview/${file.id}?token=${token}`;
-            const downloadUrl = `/api/files/download/${file.id}?token=${token}`;
+            const previewUrl = apiUrl(`/api/files/preview/${file.id}?token=${token}`);
+            const downloadUrl = apiUrl(`/api/files/download/${file.id}?token=${token}`);
 
             return (
               <div

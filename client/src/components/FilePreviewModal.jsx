@@ -1,4 +1,5 @@
 import React from 'react';
+import { apiUrl } from '../api.js';
 import { useAuth } from '../context/AuthContext';
 import { X, Download, FileText, Film, Image as ImageIcon, Archive, Calendar, User, HardDrive } from 'lucide-react';
 
@@ -8,8 +9,8 @@ export default function FilePreviewModal({ isOpen, onClose, file }) {
 
   if (!isOpen || !file) return null;
 
-  const downloadUrl = `/api/files/download/${file.id}?token=${token}`;
-  const previewUrl = `/api/files/preview/${file.id}?token=${token}`;
+  const downloadUrl = apiUrl(`/api/files/download/${file.id}?token=${token}`);
+  const previewUrl = apiUrl(`/api/files/preview/${file.id}?token=${token}`);
 
   const isImage = file.mime_type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file.original_name);
   const isVideo = file.mime_type?.startsWith('video/') || /\.(mp4|webm|mov)$/i.test(file.original_name);

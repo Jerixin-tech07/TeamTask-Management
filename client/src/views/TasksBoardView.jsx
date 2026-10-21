@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { apiFetch as fetch } from '../api.js';
+import { apiFetch as fetch, apiUrl } from '../api.js';
 import { useAuth } from '../context/AuthContext';
 import {
   CheckSquare, Plus, Search, Filter, Calendar, User, FileText,
@@ -498,7 +498,7 @@ export default function TasksBoardView({
                       </div>
 
                       <a
-                        href={`/api/files/download/${sub.id}?token=${token}`}
+                        href={apiUrl(`/api/files/download/${sub.id}?token=${token}`)}
                         download={sub.original_name}
                         className="btn btn-secondary btn-sm"
                         style={{ padding: '4px 10px', fontSize: '11px' }}

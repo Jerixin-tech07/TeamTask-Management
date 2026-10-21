@@ -1,7 +1,7 @@
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
 
 export const API_BASE_URL = configuredApiUrl
-  ? configuredApiUrl.replace(/\/+$/, '')
+  ? configuredApiUrl.replace(/\/+$/, '').replace(/\/api$/i, '')
   : '';
 
 export function apiUrl(path) {
