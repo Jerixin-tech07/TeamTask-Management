@@ -213,6 +213,12 @@ The test suite covers:
 
 The application is structured to be deployed on platforms such as **Render**, **Railway**, **DigitalOcean**, or **VPS (Ubuntu/Debian)**:
 
+### Deploying to Vercel:
+- The root `vercel.json` builds the Vite app from `client/package.json` and routes `/api/*` requests to the Express function in `server/index.js`.
+- Keep `VITE_API_URL` unset when deploying both parts in this project; the frontend sends API requests to same-origin `/api` paths. Set it only when using a separately hosted backend.
+- Configure `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` in Vercel's project environment variables. The server fails fast on Vercel if either is missing; local SQLite is used only outside Vercel when Turso credentials are absent.
+- Vercel Functions do not provide durable local file storage or support long-lived Socket.IO connections. Store uploads in an external service and host the backend on a long-running platform if persistent local files or Socket.IO are required.
+
 ### Deploying to Render / Railway:
 1. Connect your repository to Render or Railway.
 2. Set the **Build Command**: `npm install && npm run build`

@@ -14,11 +14,8 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
-  "optionalDependencies": {
-    "better-sqlite3": "^13.0.3",
-    "sqlite3": "^6.0.1"
-  },
   "dependencies": {
+    "@libsql/client": "^0.15.15",
     "bcryptjs": "^3.0.3",
     "concurrently": "^10.0.6",
     "cors": "^2.8.6",

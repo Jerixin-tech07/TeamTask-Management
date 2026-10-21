@@ -1,51 +1,52 @@
-const sqlite3 = require('sqlite3').verbose();
+const { createClient } = require('@libsql/client');
 const path = require('path');
-const fs = require('fs');
 const bcrypt = require('bcryptjs');
 
 const dbPath = path.resolve(__dirname, 'database.sqlite');
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Failed to connect to SQLite database:', err.message);
-  } else {
-    console.log('Connected to SQLite database at:', dbPath);
-  }
-});
+const tursoUrl = process.env.TURSO_DATABASE_URL?.trim();
+const tursoAuthToken = process.env.TURSO_AUTH_TOKEN?.trim();
+const isVercel = Boolean(process.env.VERCEL);
+
+if (Boolean(tursoUrl) !== Boolean(tursoAuthToken)) {
+  throw new Error('TURSO_DATABASE_URL and TURSO_AUTH_TOKEN must both be configured.');
+}
+
+if (isVercel && (!tursoUrl || !tursoAuthToken)) {
+  throw new Error('Turso is required on Vercel. Configure TURSO_DATABASE_URL and TURSO_AUTH_TOKEN.');
+}
+
+if (isVercel && tursoUrl.toLowerCase().startsWith('file:')) {
+  throw new Error('TURSO_DATABASE_URL must point to a remote Turso database on Vercel.');
+}
+
+const db = createClient(
+  tursoUrl && tursoAuthToken
+    ? { url: tursoUrl, authToken: tursoAuthToken }
+    : { url: `file:${dbPath}` }
+);
+
+console.log(tursoUrl && !tursoUrl.toLowerCase().startsWith('file:')
+  ? 'Connected to Turso database.'
+  : `Connected to local SQLite database at: ${dbPath}`);
 
 // Helper functions for Promises
 const query = {
-  get: (sql, params = []) => {
-    return new Promise((resolve, reject) => {
-      db.get(sql, params, (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      });
-    });
+  get: async (sql, params = []) => {
+    const result = await db.execute({ sql, args: params });
+    return result.rows[0];
   },
-  all: (sql, params = []) => {
-    return new Promise((resolve, reject) => {
-      db.all(sql, params, (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows || []);
-      });
-    });
+  all: async (sql, params = []) => {
+    const result = await db.execute({ sql, args: params });
+    return result.rows;
   },
-  run: (sql, params = []) => {
-    return new Promise((resolve, reject) => {
-      db.run(sql, params, function (err) {
-        if (err) reject(err);
-        else resolve({ lastID: this.lastID, changes: this.changes });
-      });
-    });
+  run: async (sql, params = []) => {
+    const result = await db.execute({ sql, args: params });
+    return {
+      lastID: Number(result.lastInsertRowid ?? 0),
+      changes: Number(result.rowsAffected)
+    };
   },
-  exec: (sql) => {
-    return new Promise((resolve, reject) => {
-      db.exec(sql, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
-  }
+  exec: (sql) => db.executeMultiple(sql)
 };
 
 async function initDatabase() {

@@ -33,11 +33,27 @@ const io = new Server(server, {
 
 app.set('io', io);
 
+let initializationPromise;
+
+function initialize() {
+  if (!initializationPromise) {
+    initializationPromise = Promise.all([
+      initDatabase(),
+      setupTransporter()
+    ]);
+  }
+
+  return initializationPromise;
+}
+
 // Middleware
 app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use((req, res, next) => {
+  initialize().then(() => next(), next);
+});
 
 // Socket.IO Authentication & Rooms
 io.use(async (socket, next) => {
@@ -130,8 +146,7 @@ app.use((err, req, res, next) => {
 // Start Server
 async function start() {
   try {
-    await initDatabase();
-    await setupTransporter();
+    await initialize();
 
     server.listen(PORT, () => {
       console.log(`\n======================================================`);
@@ -146,4 +161,8 @@ async function start() {
   }
 }
 
-start();
+module.exports = app;
+
+if (!process.env.VERCEL) {
+  start();
+}
