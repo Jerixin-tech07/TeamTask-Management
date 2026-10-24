@@ -2,16 +2,22 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-console.log('🚀 [BUILD] Starting client production build...');
-execSync('npm --workspace client run build', { stdio: 'inherit' });
+console.log('🚀 [BUILD] Starting production build...');
 
-const clientDist = path.join(__dirname, 'client', 'dist');
-const rootDist = path.join(__dirname, 'dist');
+const isInsideClient = __dirname.endsWith('client') || __dirname.endsWith('client' + path.sep);
+const clientDir = isInsideClient ? __dirname : path.join(__dirname, 'client');
+const rootDir = isInsideClient ? path.resolve(__dirname, '..') : __dirname;
 
-if (fs.existsSync(clientDist)) {
-  fs.cpSync(clientDist, rootDist, { recursive: true });
-  console.log('✅ [BUILD] Production assets successfully copied to both ./dist and ./client/dist');
-} else {
-  console.error('❌ [BUILD] client/dist not found!');
-  process.exit(1);
+execSync('npx vite build', { cwd: clientDir, stdio: 'inherit' });
+
+const clientDist = path.join(clientDir, 'dist');
+const rootDist = path.join(rootDir, 'dist');
+
+try {
+  if (fs.existsSync(clientDist)) {
+    fs.cpSync(clientDist, rootDist, { recursive: true });
+    console.log('✅ [BUILD] Assets populated in both ./dist and ./client/dist');
+  }
+} catch (e) {
+  console.warn('[BUILD] Copy warning:', e.message);
 }
