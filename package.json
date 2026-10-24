@@ -8,14 +8,14 @@
     "server": "node --watch server/index.js",
     "client": "npm --prefix client run dev",
     "dev": "concurrently -k -p \"[{name}]\" -n \"SERVER,CLIENT\" -c \"cyan.bold,green.bold\" \"node --watch server/index.js\" \"npm --prefix client run dev\"",
-    "build": "npm --workspace client run build"
+    "build": "node build.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "engines": {
-    "node": ">=20.0.0"
+    "node": "22.x"
   },
   "workspaces": [
     "client"

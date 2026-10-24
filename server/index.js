@@ -4,6 +4,7 @@ const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
+const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const { Server } = require('socket.io');
 
@@ -119,8 +120,10 @@ app.get(['/api/health', '/health'], (req, res) => {
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.resolve(__dirname, '..', 'uploads')));
 
-// Serve frontend build in production
-const clientDistPath = path.resolve(__dirname, '..', 'client', 'dist');
+// Serve frontend build in production (supports root dist or client/dist)
+const clientDistPath = fs.existsSync(path.resolve(__dirname, '..', 'dist'))
+  ? path.resolve(__dirname, '..', 'dist')
+  : path.resolve(__dirname, '..', 'client', 'dist');
 app.use(express.static(clientDistPath));
 
 app.use((req, res, next) => {
