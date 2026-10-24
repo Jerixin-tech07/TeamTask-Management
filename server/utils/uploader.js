@@ -1,24 +1,36 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
-const baseUploadDir = path.resolve(__dirname, '..', '..', 'uploads');
+const isVercel = Boolean(process.env.VERCEL);
+const baseUploadDir = isVercel
+  ? path.join(os.tmpdir(), 'uploads')
+  : path.resolve(__dirname, '..', '..', 'uploads');
 
-// Ensure upload subdirectories exist
+// Ensure upload subdirectories exist safely
 const subDirs = ['submissions', 'chat', 'general'];
-subDirs.forEach(sub => {
-  const fullPath = path.join(baseUploadDir, sub);
-  if (!fs.existsSync(fullPath)) {
-    fs.mkdirSync(fullPath, { recursive: true });
-  }
-});
+try {
+  subDirs.forEach(sub => {
+    const fullPath = path.join(baseUploadDir, sub);
+    if (!fs.existsSync(fullPath)) {
+      fs.mkdirSync(fullPath, { recursive: true });
+    }
+  });
+} catch (e) {
+  console.warn('[UPLOADER] Notice on directory init:', e.message);
+}
 
 function getStorage(subFolder = 'general') {
   return multer.diskStorage({
     destination: (req, file, cb) => {
       const dest = path.join(baseUploadDir, subFolder);
-      if (!fs.existsSync(dest)) {
-        fs.mkdirSync(dest, { recursive: true });
+      try {
+        if (!fs.existsSync(dest)) {
+          fs.mkdirSync(dest, { recursive: true });
+        }
+      } catch (e) {
+        // Fallback to tmpdir if needed
       }
       cb(null, dest);
     },

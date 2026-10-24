@@ -7,51 +7,114 @@ const tursoUrl = process.env.TURSO_DATABASE_URL?.trim();
 const tursoAuthToken = process.env.TURSO_AUTH_TOKEN?.trim();
 const isVercel = Boolean(process.env.VERCEL);
 const isProduction = process.env.NODE_ENV === 'production';
-const requiresTurso = isVercel || isProduction;
+const forceLocal = process.env.FORCE_LOCAL_DB === 'true' || process.env.OFFLINE_MODE === 'true';
 
-if (Boolean(tursoUrl) !== Boolean(tursoAuthToken)) {
-  throw new Error('TURSO_DATABASE_URL and TURSO_AUTH_TOKEN must both be configured.');
+let client = null;
+let isOfflineFallback = false;
+
+function createDbClient() {
+  if (forceLocal) {
+    console.log(`📦 [DB] Offline mode forced. Connected to local SQLite database at: ${dbPath}`);
+    return createClient({ url: `file:${dbPath}` });
+  }
+
+  if (tursoUrl && tursoAuthToken) {
+    return createClient({ url: tursoUrl, authToken: tursoAuthToken });
+  }
+
+  if (isVercel) {
+    throw new Error('TURSO_DATABASE_URL and TURSO_AUTH_TOKEN must be configured in Vercel environment variables.');
+  }
+
+  console.log(`📦 [DB] Turso credentials not provided. Connected to local SQLite database at: ${dbPath}`);
+  return createClient({ url: `file:${dbPath}` });
 }
 
-if (requiresTurso && (!tursoUrl || !tursoAuthToken)) {
-  throw new Error('Turso is required in production. Configure TURSO_DATABASE_URL and TURSO_AUTH_TOKEN.');
+client = createDbClient();
+
+function getActiveClient() {
+  return client;
 }
 
-if (requiresTurso && tursoUrl.toLowerCase().startsWith('file:')) {
-  throw new Error('TURSO_DATABASE_URL must point to a remote Turso database in production.');
+function canFallbackToLocal(err) {
+  if (isVercel || isOfflineFallback || forceLocal) return false;
+  const msg = (err?.message || String(err)).toLowerCase();
+  return (
+    msg.includes('fetch failed') ||
+    msg.includes('timeout') ||
+    msg.includes('enotfound') ||
+    msg.includes('econnrefused') ||
+    msg.includes('eai_again') ||
+    msg.includes('und_err') ||
+    msg.includes('network')
+  );
 }
 
-const db = createClient(
-  tursoUrl && tursoAuthToken
-    ? { url: tursoUrl, authToken: tursoAuthToken }
-    : { url: `file:${dbPath}` }
-);
-
-if (tursoUrl && !tursoUrl.toLowerCase().startsWith('file:')) {
-  console.log('Connected to Turso database.');
-} else {
-  const localDbPath = tursoUrl?.slice('file:'.length) || dbPath;
-  console.log(`Connected to local SQLite database at: ${localDbPath}`);
+function switchToLocalSqlite(reasonErr) {
+  console.warn('⚠️  [DB] Network/Turso communication issue:', reasonErr?.message);
+  console.log(`📦 [DB] Auto-switching session to local SQLite database at: ${dbPath}`);
+  client = createClient({ url: `file:${dbPath}` });
+  isOfflineFallback = true;
 }
 
-// Helper functions for Promises
+// Helper functions for Promises with automatic offline resilience
 const query = {
   get: async (sql, params = []) => {
-    const result = await db.execute({ sql, args: params });
-    return result.rows[0];
+    try {
+      const result = await getActiveClient().execute({ sql, args: params });
+      return result.rows[0];
+    } catch (err) {
+      if (canFallbackToLocal(err)) {
+        switchToLocalSqlite(err);
+        const result = await getActiveClient().execute({ sql, args: params });
+        return result.rows[0];
+      }
+      throw err;
+    }
   },
   all: async (sql, params = []) => {
-    const result = await db.execute({ sql, args: params });
-    return result.rows;
+    try {
+      const result = await getActiveClient().execute({ sql, args: params });
+      return result.rows;
+    } catch (err) {
+      if (canFallbackToLocal(err)) {
+        switchToLocalSqlite(err);
+        const result = await getActiveClient().execute({ sql, args: params });
+        return result.rows;
+      }
+      throw err;
+    }
   },
   run: async (sql, params = []) => {
-    const result = await db.execute({ sql, args: params });
-    return {
-      lastID: Number(result.lastInsertRowid ?? 0),
-      changes: Number(result.rowsAffected)
-    };
+    try {
+      const result = await getActiveClient().execute({ sql, args: params });
+      return {
+        lastID: Number(result.lastInsertRowid ?? 0),
+        changes: Number(result.rowsAffected)
+      };
+    } catch (err) {
+      if (canFallbackToLocal(err)) {
+        switchToLocalSqlite(err);
+        const result = await getActiveClient().execute({ sql, args: params });
+        return {
+          lastID: Number(result.lastInsertRowid ?? 0),
+          changes: Number(result.rowsAffected)
+        };
+      }
+      throw err;
+    }
   },
-  exec: (sql) => db.executeMultiple(sql)
+  exec: async (sql) => {
+    try {
+      return await getActiveClient().executeMultiple(sql);
+    } catch (err) {
+      if (canFallbackToLocal(err)) {
+        switchToLocalSqlite(err);
+        return await getActiveClient().executeMultiple(sql);
+      }
+      throw err;
+    }
+  }
 };
 
 async function addColumnIfMissing(sql) {
@@ -65,6 +128,20 @@ async function addColumnIfMissing(sql) {
 }
 
 async function initDatabase() {
+  // Test connection to Turso if configured, or fall back to local SQLite if offline
+  if (!forceLocal && tursoUrl && tursoAuthToken) {
+    try {
+      await client.execute('SELECT 1');
+      console.log('✅ [DB] Connected to Turso cloud database.');
+    } catch (err) {
+      if (isVercel) {
+        console.error('❌ [DB] Turso connection failed in Vercel environment:', err.message);
+        throw err;
+      }
+      switchToLocalSqlite(err);
+    }
+  }
+
   // Enable foreign keys
   await query.run('PRAGMA foreign_keys = ON;');
 
@@ -86,8 +163,6 @@ async function initDatabase() {
   `);
 
   await addColumnIfMissing('ALTER TABLE users ADD COLUMN active_session_token TEXT;');
-
-  // Add date_of_birth column if not exists
   await addColumnIfMissing('ALTER TABLE users ADD COLUMN date_of_birth TEXT;');
 
   // Email OTPs table
@@ -104,7 +179,6 @@ async function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_otps_email ON email_otps(email);
   `);
 
-  // Add purpose column to email_otps if not exists (migration for existing DBs)
   await addColumnIfMissing("ALTER TABLE email_otps ADD COLUMN purpose TEXT DEFAULT 'registration';");
 
   // Tasks table
@@ -123,7 +197,7 @@ async function initDatabase() {
     );
   `);
 
-  // Task Assignments table (many-to-many or specific user assignment)
+  // Task Assignments table
   await query.exec(`
     CREATE TABLE IF NOT EXISTS task_assignments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -199,7 +273,7 @@ async function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_files_user ON files(user_id);
   `);
 
-  // Login Activity table (Spreadsheet-style tracking)
+  // Login Activity table
   await query.exec(`
     CREATE TABLE IF NOT EXISTS login_activity (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -231,31 +305,50 @@ async function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read);
   `);
 
-// Seed designated Admin account if not present (jerison1539@gmail.com)
+  // Seed designated Admin account (jerison1539@gmail.com / JeriADM07#)
   await seedInitialData();
 }
 
 async function seedInitialData() {
-  const adminEmail = process.env.DEFAULT_ADMIN_EMAIL || 'jerison1539@gmail.com';
-  const existingAdmin = await query.get('SELECT id FROM users WHERE email = ?', [adminEmail]);
+  const adminEmail = (process.env.DEFAULT_ADMIN_EMAIL || 'jerison1539@gmail.com').trim().toLowerCase();
+  const rawAdminPass = process.env.DEFAULT_ADMIN_PASSWORD;
+  const adminPassword = (rawAdminPass && rawAdminPass !== 'JeriADM07' ? rawAdminPass : 'JeriADM07#');
+  const adminName = process.env.DEFAULT_ADMIN_NAME || 'Jerison (Admin)';
+
+  const salt = await bcrypt.genSalt(10);
+  const adminHash = await bcrypt.hash(adminPassword, salt);
+
+  const existingAdmin = await query.get(
+    'SELECT id, password_hash, role, status FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))',
+    [adminEmail]
+  );
 
   if (existingAdmin) {
-    console.log(`[SEED] Designated admin account already exists: ${adminEmail}`);
+    const isPasswordValid = await bcrypt.compare(adminPassword, existingAdmin.password_hash);
+    if (!isPasswordValid || existingAdmin.role !== 'admin' || existingAdmin.status !== 'active') {
+      await query.run(
+        'UPDATE users SET password_hash = ?, role = ?, status = ? WHERE id = ?',
+        [adminHash, 'admin', 'active', existingAdmin.id]
+      );
+      console.log(`[SEED] Admin credentials & role synchronized for: ${adminEmail}`);
+    } else {
+      console.log(`[SEED] Designated admin account verified & ready: ${adminEmail}`);
+    }
     return;
   }
 
-  const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD || 'JeriAD07#';
-  const salt = await bcrypt.genSalt(10);
-  const adminHash = await bcrypt.hash(adminPassword, salt);
   await query.run(`
     INSERT INTO users (name, email, password_hash, role, department, status, avatar)
     VALUES (?, ?, ?, 'admin', 'Management', 'active', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150')
-  `, [process.env.DEFAULT_ADMIN_NAME || 'Jerison (Admin)', adminEmail, adminHash]);
+  `, [adminName, adminEmail, adminHash]);
   console.log(`[SEED] Designated admin account created: ${adminEmail}`);
 }
 
 module.exports = {
-  db,
+  get db() {
+    return getActiveClient();
+  },
   query,
-  initDatabase
+  initDatabase,
+  isOffline: () => isOfflineFallback || forceLocal
 };

@@ -123,11 +123,17 @@ export function AuthProvider({ children }) {
     }
 
     const newSocket = io(API_BASE_URL || undefined, {
-      auth: { token }
+      auth: { token },
+      reconnectionAttempts: 3,
+      timeout: 5000
     });
 
     newSocket.on('connect', () => {
       console.log('Socket connected successfully');
+    });
+
+    newSocket.on('connect_error', () => {
+      // Gracefully handle environments without persistent WebSockets (e.g. Vercel serverless)
     });
 
     newSocket.on('new_message', (msg) => {

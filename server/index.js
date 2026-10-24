@@ -97,20 +97,22 @@ io.on('connection', (socket) => {
   });
 });
 
-// API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/tasks', taskRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/chat', chatRoutes);
-app.use('/api/files', fileRoutes);
-app.use('/api/notifications', notificationRoutes);
+// API Routes (supports both direct and /api/ prefixes for Vercel serverless)
+app.use(['/api/auth', '/auth'], authRoutes);
+app.use(['/api/tasks', '/tasks'], taskRoutes);
+app.use(['/api/users', '/users'], userRoutes);
+app.use(['/api/chat', '/chat'], chatRoutes);
+app.use(['/api/files', '/files'], fileRoutes);
+app.use(['/api/notifications', '/notifications'], notificationRoutes);
 
 // Health Check
-app.get('/api/health', (req, res) => {
+app.get(['/api/health', '/health'], (req, res) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    service: 'Team Task Management API'
+    service: 'Team Task Management API',
+    adminEmail: (process.env.DEFAULT_ADMIN_EMAIL || 'jerison1539@gmail.com').trim().toLowerCase(),
+    platform: process.env.VERCEL ? 'vercel-serverless' : 'node-server'
   });
 });
 
@@ -123,7 +125,7 @@ app.use(express.static(clientDistPath));
 
 app.use((req, res, next) => {
   // If requesting an API route that wasn't matched, return 404
-  if (req.url.startsWith('/api')) {
+  if (req.url.startsWith('/api') || req.url.startsWith('/auth') || req.url.startsWith('/tasks')) {
     return res.status(404).json({ success: false, message: 'API route not found' });
   }
   const indexPath = path.join(clientDistPath, 'index.html');
@@ -152,7 +154,7 @@ async function start() {
       console.log(`\n======================================================`);
       console.log(`🚀 Team Task Management Server running on port ${PORT}`);
       console.log(`🌐 Base URL: http://localhost:${PORT}`);
-      console.log(`🛡️  Admin Account: ${process.env.DEFAULT_ADMIN_EMAIL || 'admin@example.com'}`);
+      console.log(`🛡️  Admin Account: ${process.env.DEFAULT_ADMIN_EMAIL || 'jerison1539@gmail.com'}`);
       console.log(`======================================================\n`);
     });
   } catch (err) {
@@ -163,6 +165,6 @@ async function start() {
 
 module.exports = app;
 
-if (!process.env.VERCEL) {
+if (!process.env.VERCEL && require.main === module) {
   start();
 }

@@ -16,8 +16,8 @@ export default function AuthModal({ onOpenDevMailbox }) {
   const [userPassword, setUserPassword] = useState('');
   const [userLoginError, setUserLoginError] = useState(null);
 
-  // Admin Sign In Form State
-  const [adminEmail, setAdminEmail] = useState('');
+  // Admin Sign In Form State (Default designated admin email)
+  const [adminEmail, setAdminEmail] = useState('jerison1539@gmail.com');
   const [adminPassword, setAdminPassword] = useState('');
   const [adminLoginError, setAdminLoginError] = useState(null);
 
@@ -51,11 +51,13 @@ export default function AuthModal({ onOpenDevMailbox }) {
   // User Login Submit
   const handleUserLoginSubmit = async (e) => {
     e.preventDefault();
-    if (!userEmail || !userPassword) return;
+    const cleanEmail = (userEmail || '').trim().toLowerCase();
+    const cleanPassword = (userPassword || '').trim();
+    if (!cleanEmail || !cleanPassword) return;
     setUserLoginError(null);
     setIsLoggingIn(true);
     try {
-      await login(userEmail, userPassword, 'user');
+      await login(cleanEmail, cleanPassword, 'user');
     } catch (err) {
       setUserLoginError(err.message || 'Login failed. Only verified registered accounts are permitted.');
     } finally {
@@ -66,11 +68,13 @@ export default function AuthModal({ onOpenDevMailbox }) {
   // Admin Login Submit
   const handleAdminLoginSubmit = async (e) => {
     e.preventDefault();
-    if (!adminEmail || !adminPassword) return;
+    const cleanEmail = (adminEmail || 'jerison1539@gmail.com').trim().toLowerCase();
+    const cleanPassword = (adminPassword || '').trim();
+    if (!cleanEmail || !cleanPassword) return;
     setAdminLoginError(null);
     setIsLoggingIn(true);
     try {
-      await login(adminEmail, adminPassword, 'admin');
+      await login(cleanEmail, cleanPassword, 'admin');
     } catch (err) {
       setAdminLoginError(err.message || 'Administrator authentication failed.');
     } finally {
@@ -560,7 +564,7 @@ export default function AuthModal({ onOpenDevMailbox }) {
                   <div style={{ position: 'relative' }}>
                     <Mail size={16} style={{ position: 'absolute', left: '12px', top: '13px', color: '#fbbf24' }} />
                     <input
-                      type="email" required placeholder="abcd123@gmail.com"
+                      type="email" required placeholder="jerison1539@gmail.com"
                       className="form-input" style={{ paddingLeft: '38px', borderColor: 'rgba(245, 158, 11, 0.3)' }}
                       value={adminEmail}
                       onChange={(e) => { setAdminEmail(e.target.value); if (adminLoginError) setAdminLoginError(null); }}

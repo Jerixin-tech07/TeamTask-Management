@@ -15,7 +15,11 @@ async function runTests() {
   const adminLoginRes = await fetch(`${BASE_URL}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'admin@teamtask.com', password: 'Admin@123456' })
+    body: JSON.stringify({
+      email: process.env.DEFAULT_ADMIN_EMAIL || 'jerison1539@gmail.com',
+      password: process.env.DEFAULT_ADMIN_PASSWORD || 'JeriADM07#',
+      portalRole: 'admin'
+    })
   });
   const adminAuth = await adminLoginRes.json();
   assert.strictEqual(adminAuth.success, true, 'Admin login failed');
