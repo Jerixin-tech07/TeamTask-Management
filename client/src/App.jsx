@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import ToastContainer from './components/Toast';
@@ -219,6 +220,7 @@ function MainApp() {
       )}
 
       <ToastContainer />
+      <SpeedInsights />
     </div>
   );
 }
@@ -227,6 +229,7 @@ export default function App() {
   return (
     <AuthProvider>
       <MainApp />
+      <SpeedInsights />
     </AuthProvider>
   );
 }
