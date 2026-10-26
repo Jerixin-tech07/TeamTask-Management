@@ -81,7 +81,7 @@ http://localhost:5000
 ### 🛡️ Administrator Account
 | Email | Password | Role |
 |---|---|---|
-| `jerison1539@gmail.com` | `JeriADM07#` | `admin` |
+| `` | `` | `admin` |
 
 *Team members register individually with their own email and verify via 6-digit email OTP.*
 
