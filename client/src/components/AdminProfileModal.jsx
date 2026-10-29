@@ -50,8 +50,14 @@ export default function AdminProfileModal({ isOpen, onClose }) {
   const handleFileUpload = async (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      addToast('Please upload an image file (PNG, JPG, SVG, WebP)', 'error');
+    if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
+      addToast('Please upload a JPG, PNG, GIF, or WebP image', 'error');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      addToast('Profile images must be 2 MB or smaller', 'error');
+      e.target.value = '';
       return;
     }
     setIsUploadingPhoto(true);
@@ -65,12 +71,13 @@ export default function AdminProfileModal({ isOpen, onClose }) {
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.message || 'Failed to upload photo');
-      setAvatar(data.avatarUrl);
-      addToast('Photo uploaded! Remember to click "Save All Changes" to persist.', 'info');
+      setAvatar(data.avatar || AVATAR_PRESETS[0]);
+      addToast('Photo uploaded and saved. Save All Changes to apply other profile edits.', 'success');
     } catch (err) {
       addToast(err.message || 'Failed to upload image', 'error');
     } finally {
       setIsUploadingPhoto(false);
+      e.target.value = '';
     }
   };
 
@@ -201,8 +208,9 @@ export default function AdminProfileModal({ isOpen, onClose }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '14px' }}>
               <div style={{ position: 'relative' }}>
                 <img
-                  src={avatar}
+                  src={avatar || AVATAR_PRESETS[0]}
                   alt="Avatar Preview"
+                  onError={() => setAvatar(AVATAR_PRESETS[0])}
                   style={{
                     width: '68px', height: '68px', borderRadius: '18px', objectFit: 'cover',
                     border: isAdmin ? '3px solid #fbbf24' : '3px solid #6366f1',
@@ -252,7 +260,7 @@ export default function AdminProfileModal({ isOpen, onClose }) {
               </div>
             </div>
 
-            <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" style={{ display: 'none' }} />
+            <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/jpeg,image/png,image/gif,image/webp" style={{ display: 'none' }} />
 
             {/* Presets */}
             <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>

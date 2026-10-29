@@ -73,6 +73,11 @@ const generalUpload = multer({
   fileFilter
 });
 
+const profileAvatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 }
+});
+
 function categorizeMime(mimeType, ext) {
   if (!mimeType) return 'general';
   if (mimeType.startsWith('image/')) return 'image';
@@ -88,5 +93,6 @@ module.exports = {
   submissionUpload,
   chatUpload,
   generalUpload,
+  profileAvatarUpload,
   categorizeMime
 };

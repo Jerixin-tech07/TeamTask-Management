@@ -3,7 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { query } = require('../db');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
-const { generalUpload } = require('../utils/uploader');
+const { profileAvatarUpload } = require('../utils/uploader');
 
 // Get all registered users (Admin only)
 router.get('/', authenticateToken, requireAdmin, async (req, res) => {
@@ -337,16 +337,30 @@ router.put('/admin-profile', authenticateToken, requireAdmin, async (req, res) =
 });
 
 // Upload profile photo
-router.post('/upload-avatar', authenticateToken, generalUpload.single('avatar'), async (req, res) => {
+router.post('/upload-avatar', authenticateToken, profileAvatarUpload.single('avatar'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'Please select an image file to upload.' });
     }
-    const avatarUrl = `/uploads/general/${req.file.filename}`;
+
+    const imageSignatures = {
+      'image/jpeg': req.file.buffer[0] === 0xff && req.file.buffer[1] === 0xd8 && req.file.buffer[2] === 0xff,
+      'image/png': req.file.buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
+      'image/gif': ['GIF87a', 'GIF89a'].includes(req.file.buffer.toString('ascii', 0, 6)),
+      'image/webp': req.file.buffer.toString('ascii', 0, 4) === 'RIFF' && req.file.buffer.toString('ascii', 8, 12) === 'WEBP'
+    };
+
+    if (!imageSignatures[req.file.mimetype]) {
+      return res.status(400).json({ success: false, message: 'Please upload a valid JPG, PNG, GIF, or WebP image.' });
+    }
+
+    const avatar = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    await query.run('UPDATE users SET avatar = ? WHERE id = ?', [avatar, req.user.id]);
+
     return res.json({
       success: true,
-      message: 'Profile photo uploaded successfully!',
-      avatarUrl
+      message: 'Profile photo uploaded and saved successfully!',
+      avatar
     });
   } catch (err) {
     console.error('Error uploading avatar:', err);
